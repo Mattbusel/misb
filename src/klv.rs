@@ -181,6 +181,18 @@ pub fn be_int(b: &[u8]) -> Option<i64> {
     })
 }
 
+/// Compares two universal keys, ignoring byte 8 (the registry version
+/// byte, index 7), which SMPTE ST 336 says not to use for matching and
+/// which encoders fill differently.
+pub fn same_key(a: &[u8], b: &[u8]) -> bool {
+    a.len() == 16
+        && b.len() == 16
+        && a.iter()
+            .zip(b)
+            .enumerate()
+            .all(|(i, (x, y))| i == 7 || x == y)
+}
+
 /// A KLV unit found by [`split`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Unit<'a> {
@@ -250,7 +262,7 @@ pub(crate) fn parse_checked<'a>(
     verify: bool,
 ) -> Result<(&'a [u8], usize), Error> {
     let k = buf.get(..16).ok_or(Error::Truncated)?;
-    if k != key {
+    if !same_key(k, key) {
         return Err(Error::WrongKey);
     }
     let (len, n) = read_ber_length(&buf[16..])?;
@@ -354,6 +366,17 @@ mod tests {
             let n = write_ber_oid(v, &mut b).unwrap();
             assert_eq!(read_ber_oid(&b[..n]), Ok((v, n)));
         }
+    }
+
+    #[test]
+    fn key_version_byte_is_ignored() {
+        let mut k = crate::st0601::KEY;
+        assert!(same_key(&k, &crate::st0601::KEY));
+        k[7] = 0x0E;
+        assert!(same_key(&k, &crate::st0601::KEY));
+        k[8] = 0;
+        assert!(!same_key(&k, &crate::st0601::KEY));
+        assert!(!same_key(&k[..15], &crate::st0601::KEY));
     }
 
     #[test]

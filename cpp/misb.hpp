@@ -36,7 +36,7 @@
 
 namespace misb {
 
-inline constexpr int version_major = 0, version_minor = 1, version_patch = 0;
+inline constexpr int version_major = 0, version_minor = 1, version_patch = 1;
 
 enum class Error {
     none = 0,
@@ -216,7 +216,8 @@ inline std::optional<bytes_view> parse_checked(const uint8_t* p, size_t n, const
                                                size_t* used, Error* err) {
     auto fail = [&](Error e) -> std::optional<bytes_view> { if (err) *err = e; return std::nullopt; };
     if (n < 16) return fail(Error::truncated);
-    if (std::memcmp(p, key, 16) != 0) return fail(Error::wrong_key);
+    // Byte 8 of a universal key (index 7) is the registry version: not used for matching.
+    if (std::memcmp(p, key, 7) != 0 || std::memcmp(p + 8, key + 8, 8) != 0) return fail(Error::wrong_key);
     size_t len, m;
     Error e = Error::none;
     if (!read_ber_length(p + 16, n - 16, len, m, &e)) return fail(e);

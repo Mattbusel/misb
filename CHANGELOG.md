@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-11-17)
+
+- Match universal keys without byte 8 (the registry version byte), as SMPTE
+  ST 336 says; some encoders send `0x0E` there instead of `0x01`. Applies to
+  `st0601::Packet::parse`, `st0903::VmtiSet::parse` and the C++ header
+  (`klv::same_key`).
+
 ## 0.1.0 (2026-11-17)
 
 - ST 0601.19 UAS Datalink Local Set: decode and encode all 143 tags (linear

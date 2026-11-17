@@ -184,6 +184,18 @@ fn sample_with_stale_checksum_is_flagged() {
     );
 }
 
+/// Encoders differ in byte 8 of the key (registry version); it is ignored.
+#[test]
+fn key_version_byte_variants_parse() {
+    let mut bytes = data("day_flight.klv")[..163].to_vec();
+    bytes[7] = 0x0E;
+    // the checksum covers the key, so fix it up for the changed byte
+    let n = bytes.len();
+    let c = klv::checksum(&bytes[..n - 2]).to_be_bytes();
+    bytes[n - 2..].copy_from_slice(&c);
+    assert!(Packet::parse(&bytes).is_ok());
+}
+
 /// The flight samples give a plausible track: sensor over Alberta, frame
 /// center a few km away, corners around the frame center.
 #[test]

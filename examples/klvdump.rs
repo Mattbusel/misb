@@ -13,7 +13,7 @@ fn main() {
     let path = std::env::args().nth(1).expect("usage: klvdump <file.klv>");
     let bytes = std::fs::read(&path).expect("read input");
     for (n, unit) in klv::split(&bytes).enumerate() {
-        if unit.key != &st0601::KEY {
+        if !klv::same_key(unit.key, &st0601::KEY) {
             println!("#{n}: other KLV key {:02x?}", unit.key);
             continue;
         }
