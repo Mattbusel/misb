@@ -1,0 +1,30 @@
+[package]
+name = "misb"
+version = "0.1.0"
+authors = ["Matt Busel <matt@busel.dev>"]
+edition = "2021"
+rust-version = "1.70"
+description = "MISB KLV metadata for drone video (STANAG 4609): ST 0601 UAS Datalink, ST 0102 security, ST 0903 VMTI and ST 1201 IMAPB. Decode and encode, checksum checked, no_std, no dependencies"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Mattbusel/misb"
+homepage = "https://github.com/Mattbusel/misb"
+documentation = "https://docs.rs/misb"
+readme = "README.md"
+keywords = ["misb", "klv", "stanag-4609", "uas", "drone"]
+categories = ["aerospace::drones", "multimedia::video", "parser-implementations", "encoding", "no-std"]
+exclude = ["tests/data/*.klv", "tests/data/*.bin", "tests/data/*.jsonl", "tests/data/*.tsv", ".github", "cpp/tests", "tools", "fuzz"]
+
+[features]
+default = ["std"]
+## `std::error::Error` for `Error`. Implies `alloc`.
+std = ["alloc"]
+## The encoders (`st0601::Builder`, `st0102::Builder`, `st0903::Builder`), which return `Vec<u8>`.
+alloc = []
+
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1"
+
+[package.metadata.docs.rs]
+all-features = true
