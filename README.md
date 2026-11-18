@@ -40,6 +40,7 @@ for unit in klv::split(&stream) {
 - [docs/format.md](docs/format.md): byte layouts and value mappings
 - [docs/testing.md](docs/testing.md): reference data and how it is checked
 - [docs/cpp.md](docs/cpp.md): the C++ header
+- [docs/integration.md](docs/integration.md): using it inside another project (features, the API to depend on, MSRV, versioning)
 - API: [docs.rs/misb](https://docs.rs/misb)
 
 ## License

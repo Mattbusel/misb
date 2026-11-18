@@ -57,6 +57,14 @@ pub mod st0102;
 pub mod st0601;
 pub mod st0903;
 
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
+#[cfg(doctest)]
+#[doc = include_str!("../docs/integration.md")]
+struct IntegrationDoctests;
+
 use core::fmt;
 
 /// Everything that can go wrong while decoding or encoding.

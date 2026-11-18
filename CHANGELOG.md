@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2 (2026-11-17)
+
+Documentation; no changes to the library code.
+
+- New `docs/integration.md`: features, the API to depend on, MSRV,
+  versioning, and where the KLV bytes come from in a video pipeline. Its
+  example runs as a doctest.
+- The README example now runs as a doctest too.
+
 ## 0.1.1 (2026-11-17)
 
 - Match universal keys without byte 8 (the registry version byte), as SMPTE
