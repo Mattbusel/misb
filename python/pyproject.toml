@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "misb"
+version = "0.1.3"
+description = "MISB KLV metadata for drone video (STANAG 4609): ST 0601 UAS Datalink, ST 0102 security, ST 0903 VMTI, ST 1201 IMAPB. Decode and encode, checksum checked"
+readme = "DESCRIPTION.md"
+license = { text = "MIT OR Apache-2.0" }
+authors = [{ name = "Matt Busel", email = "matt@busel.dev" }]
+requires-python = ">=3.10"
+keywords = ["misb", "klv", "stanag-4609", "st0601", "uas", "drone", "vmti"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/Mattbusel/misb"
+Documentation = "https://github.com/Mattbusel/misb/blob/master/python/DESCRIPTION.md"
+Source = "https://github.com/Mattbusel/misb"
+
+[tool.maturin]
+python-source = "python"
+module-name = "misb._misb"
+features = ["pyo3/extension-module"]

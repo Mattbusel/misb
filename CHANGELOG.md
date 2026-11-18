@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3 (2026-11-17)
+
+- Python bindings in `python/` (PyO3, abi3 wheels for Python 3.10+, package
+  `misb`): `parse` (checksum checked), `decode_item` (including IMAPB tags,
+  the ST 0102 security set and the ST 0903 VMTI set with its targets),
+  `Builder`, `split`, `tag_info`, `checksum`. The tests compare every value
+  against the klvdata golden file, like the Rust tests. The Rust crate is
+  unchanged.
+- Typed: the package ships `py.typed` and stubs, and CI checks the stubs
+  against the built module with `mypy.stubtest`.
+
 ## 0.1.2 (2026-11-17)
 
 Documentation; no changes to the library code.

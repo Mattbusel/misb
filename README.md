@@ -4,7 +4,7 @@
 [![docs.rs](https://docs.rs/misb/badge.svg)](https://docs.rs/misb)
 [![CI](https://github.com/Mattbusel/misb/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattbusel/misb/actions/workflows/ci.yml)
 
-Read and write the KLV metadata in drone video (STANAG 4609), in Rust and in one C++ header.
+Read and write the KLV metadata in drone video (STANAG 4609), in Rust, Python and one C++ header.
 
 - ST 0601 UAS Datalink: all 143 tags, sensor and frame-center position, footprint corners
 - ST 0903 VMTI: detections per frame, pixel boxes and ground positions
@@ -20,6 +20,8 @@ misb = "0.1"
 ```
 
 C++17: copy [`cpp/misb.hpp`](cpp/misb.hpp).
+
+Python: `pip install misb` (built from [`python/`](python/), see [python/DESCRIPTION.md](python/DESCRIPTION.md)).
 
 ## Use
 
@@ -40,6 +42,7 @@ for unit in klv::split(&stream) {
 - [docs/format.md](docs/format.md): byte layouts and value mappings
 - [docs/testing.md](docs/testing.md): reference data and how it is checked
 - [docs/cpp.md](docs/cpp.md): the C++ header
+- [python/DESCRIPTION.md](python/DESCRIPTION.md): the Python bindings (`parse`, `decode_item`, `Builder`, `split`)
 - [docs/integration.md](docs/integration.md): using it inside another project (features, the API to depend on, MSRV, versioning)
 - API: [docs.rs/misb](https://docs.rs/misb)
 

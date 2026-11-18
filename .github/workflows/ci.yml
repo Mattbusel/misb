@@ -37,7 +37,9 @@ jobs:
         with:
           components: clippy, rustfmt
       - run: cargo fmt --check
+      - run: cargo fmt --check --manifest-path python/Cargo.toml
       - run: cargo clippy --all-features --all-targets -- -D warnings
+      - run: cargo clippy --manifest-path python/Cargo.toml -- -D warnings
       - run: cargo doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
@@ -66,3 +68,30 @@ jobs:
       - run: cargo install cargo-fuzz --locked
       - run: mkdir -p fuzz/corpus/parse && cp tests/data/*.klv tests/data/*.bin fuzz/corpus/parse/
       - run: cargo fuzz run parse -- -max_total_time=120
+  python:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: python
+          args: --release --out dist
+      - name: Install the wheel and run the tests
+        shell: bash
+        run: |
+          python -m pip install -q pytest
+          python -m pip install -q python/dist/*.whl
+          cd python/tests && python -m pytest -q .
+      - name: Check the type stubs against the built module
+        shell: bash
+        run: |
+          python -m pip install -q mypy
+          cd python/tests && python -m mypy.stubtest misb

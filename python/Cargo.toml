@@ -1,0 +1,17 @@
+[package]
+name = "misb-python"
+version = "0.1.3"
+edition = "2021"
+publish = false
+description = "Python bindings for the misb crate"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "_misb"
+crate-type = ["cdylib"]
+
+[dependencies]
+misb = { path = "..", features = ["std"] }
+pyo3 = { version = "0.30", features = ["extension-module", "abi3-py310"] }
+
+[workspace]
