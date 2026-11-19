@@ -1,10 +1,10 @@
-# misb
+# misb: drone video without its KLV is just pictures
 
 [![crates.io](https://img.shields.io/crates/v/misb.svg)](https://crates.io/crates/misb)
 [![docs.rs](https://docs.rs/misb/badge.svg)](https://docs.rs/misb)
 [![CI](https://github.com/Mattbusel/misb/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattbusel/misb/actions/workflows/ci.yml)
 
-Read and write the KLV metadata in drone video (STANAG 4609), in Rust, Python and one C++ header.
+Drone video carries KLV metadata: where the aircraft was, where the sensor pointed, what was detected in each frame. Run that video through ffmpeg with default settings and the metadata is gone, because data streams "are not automatically selected and can only be included using -map" ([ffmpeg docs](https://ffmpeg.org/ffmpeg.html#Stream-selection)). Footage without it is pictures, not intelligence. misb reads and writes that metadata (STANAG 4609) in Rust, Python and one C++ header.
 
 - ST 0601 UAS Datalink: all 143 tags, sensor and frame-center position, footprint corners
 - ST 0903 VMTI: detections per frame, pixel boxes and ground positions
