@@ -8,6 +8,8 @@
 //! | MISB ST 0102 | [`st0102`] | Security Local Set (classification markings), nested in ST 0601 tag 48 |
 //! | MISB ST 0903 | [`st0903`] | Video Moving Target Indicator (VMTI): detections in the frame, nested in tag 74 or standalone |
 //! | MISB ST 1201 | [`imapb`] | IMAPB floating point to integer mapping used by the newer tags |
+//! | ST 0601, ST 1201 conformance | [`conform`] (`std`) | Fails a stream on missing KLV, mandatory tags, checksums, sizes, mappings, time going backwards and impossible positions |
+//! | ISO 13818-1 | [`ts`] (`std`) | Takes the KLV data streams out of an MPEG transport stream without ffmpeg |
 //!
 //! Decoding is zero-copy and does not allocate: a [`st0601::Packet`] borrows
 //! the input and hands out typed values on demand. The checksum is verified
@@ -50,12 +52,16 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+#[cfg(feature = "std")]
+pub mod conform;
 pub mod imapb;
 pub mod klv;
 mod math;
 pub mod st0102;
 pub mod st0601;
 pub mod st0903;
+#[cfg(feature = "std")]
+pub mod ts;
 
 #[cfg(doctest)]
 #[doc = include_str!("../README.md")]

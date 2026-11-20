@@ -38,7 +38,8 @@ pub const VERSION: u64 = 19;
 pub enum Kind {
     /// Text (ISO 646 / UTF-8).
     Text,
-    /// Microseconds since 1970-01-01 UTC (MISP time), unsigned 8 bytes.
+    /// Microseconds since 1970-01-01 UTC (MISP time), unsigned, 8 bytes for
+    /// tag 2 and up to 8 for the others.
     Time,
     /// Unsigned integer, 1 to 8 bytes.
     Uint,
@@ -322,16 +323,26 @@ impl<'a> Value<'a> {
     }
 }
 
+/// Decodes the value of tag `tag`: [`decode_value`] with the tag's kind,
+/// [`Value::Bytes`] for tags ST 0601.19 does not define, and
+/// [`Value::Invalid`] for a Precision Time Stamp (tag 2) that is not 8 bytes.
+pub fn decode_tag(tag: u32, raw: &[u8]) -> Value<'_> {
+    match tag_info(tag) {
+        Some(_) if tag == Tag::PrecisionTimeStamp as u32 && raw.len() != 8 => Value::Invalid,
+        Some(t) => decode_value(t.kind, raw),
+        None => Value::Bytes(raw),
+    }
+}
+
 /// Decodes `raw` according to `kind`.
 pub fn decode_value(kind: Kind, raw: &[u8]) -> Value<'_> {
     match kind {
         Kind::Text => core::str::from_utf8(raw)
             .map(Value::Text)
             .unwrap_or(Value::Invalid),
-        Kind::Time => match raw.len() {
-            8 => be_uint(raw).map(Value::Time).unwrap_or(Value::Invalid),
-            _ => Value::Invalid,
-        },
+        // Tag 2 is always 8 bytes; newer time tags (Take-off Time, 131) may
+        // be sent shorter, as KWIVER does. [`crate::conform`] flags a short tag 2.
+        Kind::Time => be_uint(raw).map(Value::Time).unwrap_or(Value::Invalid),
         Kind::Uint => be_uint(raw).map(Value::Uint).unwrap_or(Value::Invalid),
         Kind::Int => be_int(raw).map(Value::Int).unwrap_or(Value::Invalid),
         Kind::Linear {
@@ -396,10 +407,7 @@ impl<'a> Item<'a> {
 
     /// The decoded value; unknown tags come back as [`Value::Bytes`].
     pub fn value(&self) -> Value<'a> {
-        match tag_info(self.tag) {
-            Some(t) => decode_value(t.kind, self.raw),
-            None => Value::Bytes(self.raw),
-        }
+        decode_tag(self.tag, self.raw)
     }
 }
 
@@ -453,7 +461,7 @@ impl<'a> Packet<'a> {
 
     /// Decoded value of `tag`, if present.
     pub fn value(&self, tag: Tag) -> Option<Value<'a>> {
-        self.raw(tag).map(|r| decode_value(tag.info().kind, r))
+        self.raw(tag).map(|r| decode_tag(tag as u32, r))
     }
 
     /// `tag` as a number in its units; `None` if missing or out of range.
@@ -471,6 +479,9 @@ impl<'a> Packet<'a> {
 
     /// Precision Time Stamp (tag 2), microseconds since 1970 UTC.
     pub fn timestamp(&self) -> Option<u64> {
+        if self.raw(Tag::PrecisionTimeStamp)?.len() != 8 {
+            return None;
+        }
         match self.value(Tag::PrecisionTimeStamp)? {
             Value::Time(t) => Some(t),
             _ => None,
@@ -787,6 +798,15 @@ mod tests {
             assert_eq!(Tag::from_u32(i as u32 + 1), Some(t.tag));
         }
         assert!(tag_info(0).is_none() && tag_info(144).is_none());
+    }
+
+    #[test]
+    fn time_lengths() {
+        assert_eq!(decode_tag(2, &[0]), Value::Invalid);
+        assert_eq!(decode_tag(2, &[0, 0, 0, 0, 0, 0, 0, 7]), Value::Time(7));
+        // Take-off Time in 7 bytes, as KWIVER writes it.
+        assert_eq!(decode_tag(131, &[0, 0, 0, 0, 0, 1, 0]), Value::Time(256));
+        assert_eq!(decode_tag(200, &[1]), Value::Bytes(&[1]));
     }
 
     #[test]

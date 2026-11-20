@@ -637,7 +637,7 @@ inline Number decode_number(const TagInfo& t, bytes_view raw) {
     switch (t.kind) {
         case Kind::uint: n.value = double(*klv::be_uint(raw)); break;
         case Kind::sint: n.value = double(*klv::be_int(raw)); break;
-        case Kind::time: if (raw.size() != 8) return n; n.value = double(*klv::be_uint(raw)); break;
+        case Kind::time: if (t.tag == 2 && raw.size() != 8) return n; n.value = double(*klv::be_uint(raw)); break;
         case Kind::linear: {
             // Lengths other than the standard one are read as sent, on the standard scale.
             int bits = 8 * t.len;

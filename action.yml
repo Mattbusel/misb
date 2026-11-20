@@ -1,0 +1,34 @@
+name: misb-check
+description: Fail the build when drone video KLV (MISB ST 0601, STANAG 4609) is missing or broken
+author: Matt Busel
+branding:
+  icon: video
+  color: red
+inputs:
+  paths:
+    description: Files or directories to check (.ts, .mpg, .m2ts, .klv), space separated
+    required: true
+    default: "."
+  args:
+    description: Extra misb-check arguments, for example --strict
+    required: false
+    default: ""
+  version:
+    description: misb crate version to install
+    required: false
+    default: "0.2.0"
+runs:
+  using: composite
+  steps:
+    - name: Install misb-check
+      shell: bash
+      env:
+        MISB_VERSION: ${{ inputs.version }}
+      run: cargo install misb --version "$MISB_VERSION" --locked --bin misb-check --root "$RUNNER_TEMP/misb"
+    - name: Check KLV
+      shell: bash
+      env:
+        MISB_PATHS: ${{ inputs.paths }}
+        MISB_ARGS: ${{ inputs.args }}
+      # word splitting of the two variables is intended
+      run: '"$RUNNER_TEMP/misb/bin/misb-check" --format github $MISB_ARGS $MISB_PATHS'

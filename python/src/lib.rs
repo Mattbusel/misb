@@ -158,7 +158,7 @@ fn item_dict<'py>(py: Python<'py>, tag: u32, raw: &[u8]) -> PyResult<Bound<'py, 
             d.set_item("name", info.name)?;
             d.set_item("units", info.units)?;
             d.set_item("kind", kind_name(info.kind))?;
-            let (status, value) = value_obj(py, st0601::decode_value(info.kind, raw))?;
+            let (status, value) = value_obj(py, st0601::decode_tag(tag, raw))?;
             d.set_item("status", status)?;
             d.set_item("value", value)?;
         }

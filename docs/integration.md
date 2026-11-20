@@ -6,11 +6,15 @@ demuxer, GStreamer `klvparse` / `appsink`, or `ffmpeg -map 0:d` hands it the
 KLV bytes, and it returns typed values. A C++17 single header with the same
 behaviour is in [`cpp/misb.hpp`](../cpp/misb.hpp) ([cpp.md](cpp.md)).
 
+With `std`, `misb::ts::klv_streams` takes the KLV data streams out of an
+MPEG transport stream itself, and `misb::conform::check_stream` returns the
+conformance report `misb-check` prints ([conformance.md](conformance.md)).
+
 ## Add it
 
 ```toml
 [dependencies]
-misb = "0.1"
+misb = "0.2"
 ```
 
 | Feature | Default | Adds | Extra dependencies |
