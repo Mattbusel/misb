@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 (2026-11-22)
+
+- C++ header: `misb::bytes_view` is now a small byte-range class instead of
+  `std::basic_string_view<uint8_t>`. libc++ 19 (Xcode 16.3+, Emscripten,
+  Android NDK r28) dropped `std::char_traits<unsigned char>`, so the header
+  did not compile there. Same members as before (`data`, `size`, `empty`,
+  `begin`, `end`, `[]`, `substr`); `substr` clamps instead of throwing.
+  No Rust change.
+
 ## 0.4.0 (2026-11-22)
 
 Why a minor bump: new public API (`st0601::packs`, new `Packet` accessors

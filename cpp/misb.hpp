@@ -68,7 +68,28 @@ struct GeoPoint {
     std::optional<double> height;
 };
 
-using bytes_view = std::basic_string_view<uint8_t>;
+// Read-only byte range. Not std::basic_string_view<uint8_t>: libc++ 19 (Xcode 16.3+,
+// Emscripten, Android NDK r28) dropped std::char_traits<unsigned char>, so that type
+// no longer compiles there.
+class bytes_view {
+public:
+    constexpr bytes_view() = default;
+    constexpr bytes_view(const uint8_t* p, size_t n) : p_(p), n_(n) {}
+    constexpr const uint8_t* data() const { return p_; }
+    constexpr size_t size() const { return n_; }
+    constexpr bool empty() const { return n_ == 0; }
+    constexpr const uint8_t* begin() const { return p_; }
+    constexpr const uint8_t* end() const { return p_ + n_; }
+    constexpr uint8_t operator[](size_t i) const { return p_[i]; }
+    // Clamped to the range instead of throwing.
+    constexpr bytes_view substr(size_t pos, size_t n = static_cast<size_t>(-1)) const {
+        if (pos > n_) pos = n_;
+        return bytes_view(p_ + pos, n < n_ - pos ? n : n_ - pos);
+    }
+private:
+    const uint8_t* p_ = nullptr;
+    size_t n_ = 0;
+};
 
 namespace klv {
 
