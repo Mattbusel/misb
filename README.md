@@ -23,6 +23,14 @@ FAIL  exit 1
 
 Drone video carries KLV metadata: where the aircraft was, where the sensor pointed, what was detected in each frame. `misb` decodes and encodes it to the MISB standards (ST 0601, ST 0102, ST 0903 VMTI, ST 1201) and pulls KLV straight out of MPEG-TS with no ffmpeg dependency. It is `no_std` with no dependencies, checks every checksum and length, never panics on bad input, and is tested byte for byte against the real KWIVER and ffmpeg sample packets, so the findings below are reproducible, not claims. The `misb-check` CLI and GitHub Action turn that into a gate: it reads ST 0601 out of a `.ts`/`.mpg` or raw `.klv` stream and exits 1 on missing KLV, missing mandatory tags (2, 65, 1), bad checksums, values sent in the wrong size, ST 1201 values that disagree with the tag they duplicate, time stamps that go backwards or were never set, and positions no aircraft or terrain can have. Every finding names the packet, its byte offset and the tag.
 
+## How it works: watch the bytes decode
+
+You are watching the real wire bytes of a real frame resolve into the decoded fields. A real MISB ST 0601 KLV packet: the 16-byte Universal Label resolving to "UAS Datalink Local Set", then each tag-length-value resolving to sensor lat/lon and frame center, checksum verifying. This crate does the decode.
+
+![byte-level decode of a MISB ST 0601 packet](docs/bit-misb-st0601.gif)
+
+[Live gallery piece](https://mattbusel.github.io/drone-demos/bits/misb-st0601/)
+
 ## What it found in the public samples (Nov 20 2026)
 
 Every public ST 0601 sample we found in the KLV projects on GitHub and on samples.ffmpeg.org:
