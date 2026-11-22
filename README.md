@@ -1,12 +1,27 @@
 # misb: drone video without its KLV is just pictures
 
+**Every public drone-video sample we could find has metadata that is broken in ways no player shows you. The video plays, the map pin lands, and the numbers behind it are wrong. `misb-check` fails the file instead of trusting it.**
+
+```text
+$ misb-check "Day Flight.mpg"
+Day Flight.mpg
+  packet 1  @0x0  tag 22 (Target Width): 4 bytes, ST 0601 maps it onto 2  WRONG-SIZE
+  packet 13 @0x6e tag 25 (Frame Center Elevation): -36.7 m, but Slant Range (1018 m)
+            and sensor altitude put the ground near +600 m (SRTM agrees)  SLANT-RANGE-MISMATCH
+  ... 24 packets, 5 fail SLANT-RANGE-MISMATCH, all 24 send tag 22 oversized
+
+FAIL  exit 1
+```
+
+[**Live demo: see it run on real drone footage**](https://mattbusel.github.io/drone-demos/)
+
 [![crates.io](https://img.shields.io/crates/v/misb.svg)](https://crates.io/crates/misb)
+[![downloads](https://img.shields.io/crates/d/misb.svg)](https://crates.io/crates/misb)
 [![docs.rs](https://docs.rs/misb/badge.svg)](https://docs.rs/misb)
+[![license](https://img.shields.io/crates/l/misb.svg)](https://github.com/Mattbusel/misb#license)
 [![CI](https://github.com/Mattbusel/misb/actions/workflows/ci.yml/badge.svg)](https://github.com/Mattbusel/misb/actions/workflows/ci.yml)
 
-Drone video carries KLV metadata: where the aircraft was, where the sensor pointed, what was detected in each frame. Without it the footage is pictures, not intelligence. And most of the KLV in circulation is broken in ways no player shows you: the video plays, the map pin lands, and the numbers behind it are wrong.
-
-**`misb-check` fails the file instead.** It reads MISB ST 0601 out of a `.ts`/`.mpg` (no ffmpeg needed) or a raw `.klv` stream and exits 1 on missing KLV, missing mandatory tags (2, 65, 1), bad checksums, values sent in the wrong size, ST 1201 values that disagree with the tag they duplicate, time stamps that go backwards or were never set, and positions no aircraft or terrain can have. Every finding names the packet, its byte offset and the tag.
+Drone video carries KLV metadata: where the aircraft was, where the sensor pointed, what was detected in each frame. `misb` decodes and encodes it to the MISB standards (ST 0601, ST 0102, ST 0903 VMTI, ST 1201) and pulls KLV straight out of MPEG-TS with no ffmpeg dependency. It is `no_std` with no dependencies, checks every checksum and length, never panics on bad input, and is tested byte for byte against the real KWIVER and ffmpeg sample packets, so the findings below are reproducible, not claims. The `misb-check` CLI and GitHub Action turn that into a gate: it reads ST 0601 out of a `.ts`/`.mpg` or raw `.klv` stream and exits 1 on missing KLV, missing mandatory tags (2, 65, 1), bad checksums, values sent in the wrong size, ST 1201 values that disagree with the tag they duplicate, time stamps that go backwards or were never set, and positions no aircraft or terrain can have. Every finding names the packet, its byte offset and the tag.
 
 ## What it found in the public samples (Nov 20 2026)
 
