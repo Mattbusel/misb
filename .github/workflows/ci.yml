@@ -31,7 +31,7 @@ jobs:
           set +e
           "$RUNNER_TEMP/misb/bin/misb-check" --format json tests/data/ > report.json
           test $? -eq 1
-          python3 -c "import json; r = json.load(open('report.json')); assert len(r) == 5 and not any(f['passed'] for f in r)"
+          python3 -c "import json; r = json.load(open('report.json')); assert len(r) == 6 and not any(f['passed'] for f in r)"
   msrv:
     runs-on: ubuntu-latest
     steps:
