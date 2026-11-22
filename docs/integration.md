@@ -1,20 +1,21 @@
 # Using misb inside another project
 
 misb decodes and encodes the KLV metadata that rides next to the video in
-STANAG 4609 streams. It does not demux video: the project's existing MPEG-TS
-demuxer, GStreamer `klvparse` / `appsink`, or `ffmpeg -map 0:d` hands it the
-KLV bytes, and it returns typed values. A C++17 single header with the same
+STANAG 4609 streams. The project's existing MPEG-TS demuxer, GStreamer
+`klvparse` / `appsink`, or `ffmpeg -map 0:d` can hand it the KLV bytes, or
+`misb::ts` (with `std`) can take them out of the transport stream itself. A C++17 single header with the same
 behaviour is in [`cpp/misb.hpp`](../cpp/misb.hpp) ([cpp.md](cpp.md)).
 
-With `std`, `misb::ts::klv_streams` takes the KLV data streams out of an
-MPEG transport stream itself, and `misb::conform::check_stream` returns the
+With `std`, `misb::ts::klv_units` takes each KLV payload out of an MPEG
+transport stream with its PTS (`ts::Demuxer` does the same for a live feed,
+`ts::Muxer` writes KLV back into a transport stream), and `misb::conform::check_stream` returns the
 conformance report `misb-check` prints ([conformance.md](conformance.md)).
 
 ## Add it
 
 ```toml
 [dependencies]
-misb = "0.2"
+misb = "0.3"
 ```
 
 | Feature | Default | Adds | Extra dependencies |
@@ -53,7 +54,8 @@ and `Packet::value`, with names and units from `st0601::tag_info`.
 | `klv::split`, `klv::same_key` | a raw KLV byte stream to units, key matching that ignores the version byte |
 | `st0601::Packet` (`parse`, `items`, `value`, `float`, `text`, `timestamp`, `sensor_position`, `frame_center`, `corners`, `vmti`, `security`) | UAS Datalink Local Set, all 143 tags |
 | `st0601::Builder`, `st0601::Tag`, `st0601::Value` | encoding, tag names, decoded values |
-| `st0903::VmtiSet`, `st0903::VTarget` | VMTI detections: pixel boxes, confidence, ground positions |
+| `st0903::VmtiSet`, `st0903::VTarget`, `st0903::Algorithm`, `st0903::Ontology` | VMTI detections: pixel boxes, confidence, ground positions, the algorithm and ontology class behind each |
+| `ts::klv_units`, `ts::klv_streams`, `ts::Demuxer`, `ts::Muxer` (`std`) | KLV out of and into MPEG transport streams, with PTS |
 | `st0102::SecuritySet` | security markings |
 | `imapb` | ST 1201 float mapping |
 | `GeoPoint`, `Error` | WGS84 point, one error type |

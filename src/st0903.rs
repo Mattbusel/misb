@@ -182,6 +182,148 @@ impl<'a> VmtiSet<'a> {
             failed: false,
         }
     }
+
+    /// The detection algorithms in the Algorithm Series (tag 102). A
+    /// target names its algorithm with [`VTarget::algorithm_id`].
+    pub fn algorithms(&self) -> SetSeries<'a, Algorithm<'a>> {
+        SetSeries::new(self.raw(Tag::AlgorithmSeries))
+    }
+
+    /// The algorithm with Algorithm ID `id`, if the Algorithm Series has it.
+    pub fn algorithm(&self, id: u64) -> Option<Algorithm<'a>> {
+        self.algorithms()
+            .map_while(Result::ok)
+            .find(|a| a.id() == Some(id))
+    }
+
+    /// The ontology classes in the Ontology Series (tag 103).
+    pub fn ontologies(&self) -> SetSeries<'a, Ontology<'a>> {
+        SetSeries::new(self.raw(Tag::OntologySeries))
+    }
+}
+
+/// A local set that lives in an ST 0903 series.
+pub trait SeriesElement<'a>: Sized {
+    /// Wraps the body of one series element.
+    fn from_body(body: &'a [u8]) -> Self;
+}
+
+/// Iterator over the local sets of an ST 0903 series (each element a BER
+/// length followed by a local set), such as [`VmtiSet::algorithms`] and
+/// [`VmtiSet::ontologies`]. Stops after the first malformed length.
+#[derive(Clone, Debug)]
+pub struct SetSeries<'a, T> {
+    rest: &'a [u8],
+    failed: bool,
+    _t: core::marker::PhantomData<T>,
+}
+
+impl<'a, T> SetSeries<'a, T> {
+    fn new(raw: Option<&'a [u8]>) -> Self {
+        SetSeries {
+            rest: raw.unwrap_or(&[]),
+            failed: false,
+            _t: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, T: SeriesElement<'a>> Iterator for SetSeries<'a, T> {
+    type Item = Result<T, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.rest.is_empty() || self.failed {
+            return None;
+        }
+        let r = read_ber_length(self.rest).and_then(|(len, n)| {
+            let end = n.checked_add(len).ok_or(Error::BadLength)?;
+            let body = self.rest.get(n..end).ok_or(Error::Truncated)?;
+            self.rest = &self.rest[end..];
+            Ok(T::from_body(body))
+        });
+        self.failed = r.is_err();
+        Some(r)
+    }
+}
+
+fn utf8(raw: Option<&[u8]>) -> Option<&str> {
+    core::str::from_utf8(raw?).ok()
+}
+
+/// One Algorithm Local Set (ST 0903 Algorithm Series, VMTI tag 102): the
+/// detector or tracker that produced targets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Algorithm<'a> {
+    body: &'a [u8],
+}
+
+impl<'a> SeriesElement<'a> for Algorithm<'a> {
+    fn from_body(body: &'a [u8]) -> Self {
+        Algorithm { body }
+    }
+}
+
+impl<'a> Algorithm<'a> {
+    /// The raw local set body.
+    pub fn body(&self) -> &'a [u8] {
+        self.body
+    }
+    /// Algorithm ID (tag 1), the value targets refer to.
+    pub fn id(&self) -> Option<u64> {
+        klv::find(self.body, 1).and_then(be_uint)
+    }
+    /// Algorithm name (tag 2).
+    pub fn name(&self) -> Option<&'a str> {
+        utf8(klv::find(self.body, 2))
+    }
+    /// Algorithm version (tag 3).
+    pub fn version(&self) -> Option<&'a str> {
+        utf8(klv::find(self.body, 3))
+    }
+    /// Algorithm class, such as "detector" or "kalman" (tag 4).
+    pub fn class(&self) -> Option<&'a str> {
+        utf8(klv::find(self.body, 4))
+    }
+    /// Number of frames the algorithm operates over (tag 5).
+    pub fn frames(&self) -> Option<u64> {
+        klv::find(self.body, 5).and_then(be_uint)
+    }
+}
+
+/// One Ontology Local Set (ST 0903 Ontology Series, VMTI tag 103): what
+/// kind of object a target is, as a class in an OWL ontology.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Ontology<'a> {
+    body: &'a [u8],
+}
+
+impl<'a> SeriesElement<'a> for Ontology<'a> {
+    fn from_body(body: &'a [u8]) -> Self {
+        Ontology { body }
+    }
+}
+
+impl<'a> Ontology<'a> {
+    /// The raw local set body.
+    pub fn body(&self) -> &'a [u8] {
+        self.body
+    }
+    /// Ontology ID (tag 1).
+    pub fn id(&self) -> Option<u64> {
+        klv::find(self.body, 1).and_then(be_uint)
+    }
+    /// Parent ID (tag 2): the ontology entry this one refines.
+    pub fn parent_id(&self) -> Option<u64> {
+        klv::find(self.body, 2).and_then(be_uint)
+    }
+    /// Ontology IRI (tag 3).
+    pub fn iri(&self) -> Option<&'a str> {
+        utf8(klv::find(self.body, 3))
+    }
+    /// Ontology class within that ontology (tag 4).
+    pub fn class(&self) -> Option<&'a str> {
+        utf8(klv::find(self.body, 4))
+    }
 }
 
 /// Iterator over the VTarget packs of a [`VmtiSet`].
@@ -506,6 +648,8 @@ mod builder {
         header: Vec<u8>,
         series: Vec<u8>,
         targets: u64,
+        algorithms: Vec<u8>,
+        ontologies: Vec<u8>,
     }
 
     impl Builder {
@@ -517,6 +661,8 @@ mod builder {
                 header,
                 series: Vec::new(),
                 targets: 0,
+                algorithms: Vec::new(),
+                ontologies: Vec::new(),
             }
         }
 
@@ -572,6 +718,56 @@ mod builder {
             Ok(self)
         }
 
+        /// Appends an Algorithm Local Set to the Algorithm Series (tag
+        /// 102). Targets refer to it with [`TargetBuilder::algorithm_id`].
+        /// Empty strings and `None` leave the item out.
+        pub fn algorithm(
+            &mut self,
+            id: u64,
+            name: &str,
+            version: &str,
+            class: &str,
+            frames: Option<u64>,
+        ) -> Result<&mut Self, Error> {
+            let mut set = Vec::new();
+            enc::push_item(&mut set, 1, &enc::min_uint(id))?;
+            for (tag, text) in [(2, name), (3, version), (4, class)] {
+                if !text.is_empty() {
+                    enc::push_item(&mut set, tag, text.as_bytes())?;
+                }
+            }
+            if let Some(n) = frames {
+                enc::push_item(&mut set, 5, &enc::min_uint(n))?;
+            }
+            enc::push_ber_length(&mut self.algorithms, set.len())?;
+            self.algorithms.extend_from_slice(&set);
+            Ok(self)
+        }
+
+        /// Appends an Ontology Local Set to the Ontology Series (tag 103).
+        /// `parent` is the ID of the entry this one refines; an empty
+        /// `class` leaves the item out.
+        pub fn ontology(
+            &mut self,
+            id: u64,
+            parent: Option<u64>,
+            iri: &str,
+            class: &str,
+        ) -> Result<&mut Self, Error> {
+            let mut set = Vec::new();
+            enc::push_item(&mut set, 1, &enc::min_uint(id))?;
+            if let Some(p) = parent {
+                enc::push_item(&mut set, 2, &enc::min_uint(p))?;
+            }
+            enc::push_item(&mut set, 3, iri.as_bytes())?;
+            if !class.is_empty() {
+                enc::push_item(&mut set, 4, class.as_bytes())?;
+            }
+            enc::push_ber_length(&mut self.ontologies, set.len())?;
+            self.ontologies.extend_from_slice(&set);
+            Ok(self)
+        }
+
         /// The set body, for nesting as ST 0601 tag 74. Adds the version,
         /// the target counts and the VTarget Series.
         pub fn body(&self) -> Vec<u8> {
@@ -581,6 +777,12 @@ mod builder {
             enc::push_item(&mut b, 6, &enc::min_uint(self.targets)).expect("small item");
             if !self.series.is_empty() {
                 enc::push_item(&mut b, 101, &self.series).expect("series under 4 GiB");
+            }
+            if !self.algorithms.is_empty() {
+                enc::push_item(&mut b, 102, &self.algorithms).expect("series under 4 GiB");
+            }
+            if !self.ontologies.is_empty() {
+                enc::push_item(&mut b, 103, &self.ontologies).expect("series under 4 GiB");
             }
             b
         }
@@ -602,6 +804,59 @@ mod tests {
         assert_eq!(pixel_to_row_col(1280, 1280), Some((1, 1280)));
         assert_eq!(pixel_to_row_col(1281, 1280), Some((2, 1)));
         assert_eq!(pixel_to_row_col(0, 1280), None);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn algorithm_and_ontology_series_round_trip() {
+        let mut b = Builder::new(1);
+        b.algorithm(3, "yolo-v8n", "8.1.0", "detector", Some(1))
+            .unwrap()
+            .algorithm(300, "sort", "", "kalman", None)
+            .unwrap()
+            .ontology(1, None, "https://example.org/uas", "Vehicle")
+            .unwrap()
+            .ontology(2, Some(1), "https://example.org/uas", "Truck")
+            .unwrap();
+        let mut t = TargetBuilder::new(9);
+        t.algorithm_id(300).unwrap();
+        b.target(&t).unwrap();
+        let bytes = b.finish();
+        let (set, _) = VmtiSet::parse(&bytes).unwrap();
+
+        let algs: alloc::vec::Vec<_> = set.algorithms().map(Result::unwrap).collect();
+        assert_eq!(algs.len(), 2);
+        assert_eq!(algs[0].id(), Some(3));
+        assert_eq!(algs[0].name(), Some("yolo-v8n"));
+        assert_eq!(algs[0].version(), Some("8.1.0"));
+        assert_eq!(algs[0].class(), Some("detector"));
+        assert_eq!(algs[0].frames(), Some(1));
+        assert_eq!(algs[1].version(), None);
+        assert_eq!(algs[1].frames(), None);
+
+        let target = set.targets().next().unwrap().unwrap();
+        let alg = set.algorithm(target.algorithm_id().unwrap()).unwrap();
+        assert_eq!(alg.name(), Some("sort"));
+        assert!(set.algorithm(4).is_none());
+
+        let onts: alloc::vec::Vec<_> = set.ontologies().map(Result::unwrap).collect();
+        assert_eq!(onts.len(), 2);
+        assert_eq!(onts[0].parent_id(), None);
+        assert_eq!(onts[1].id(), Some(2));
+        assert_eq!(onts[1].parent_id(), Some(1));
+        assert_eq!(onts[1].iri(), Some("https://example.org/uas"));
+        assert_eq!(onts[1].class(), Some("Truck"));
+    }
+
+    #[test]
+    fn hostile_algorithm_series_does_not_panic() {
+        let body = [102u8, 3, 0x05, 0x01, 0x01];
+        let set = VmtiSet::new(&body);
+        let mut a = set.algorithms();
+        assert_eq!(a.next(), Some(Err(Error::Truncated)));
+        assert!(a.next().is_none());
+        assert!(set.algorithm(1).is_none());
+        assert_eq!(set.ontologies().count(), 0);
     }
 
     #[test]

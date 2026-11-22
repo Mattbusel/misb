@@ -43,17 +43,18 @@ misb-check --strict flight.ts         # warnings fail too
 Exit status: 0 pass, 1 fail, 2 unreadable input. In GitHub Actions:
 
 ```yaml
-- uses: Mattbusel/misb@v0.2.0
+- uses: Mattbusel/misb@v0.3.0
   with:
     paths: test_data/videos    # files or directories, space separated
 ```
 
-Findings show up as annotations on the run. In Rust, `misb::conform::check_stream` gives the same report, and `misb::ts::klv_streams` takes the KLV out of a transport stream.
+Findings show up as annotations on the run. In Rust, `misb::conform::check_stream` gives the same report, and `misb::ts` takes the KLV out of a transport stream (see below).
 
 The decoder itself:
 
 - ST 0601 UAS Datalink: all 143 tags, sensor and frame-center position, footprint corners
-- ST 0903 VMTI: detections per frame, pixel boxes and ground positions
+- ST 0903 VMTI: detections per frame, pixel boxes and ground positions, the Algorithm and Ontology series that say which detector found a target and what it is
+- MPEG-TS in and out without ffmpeg: KLV with its PTS per packet, synchronous (ST 1402 AU cells) and asynchronous carriage, a push demuxer for live UDP feeds, a muxer for test files
 - ST 0102 security markings, ST 1201 IMAPB
 - Checks the checksum and every length. No panics on bad input, no dependencies, `no_std`
 - Matches klvdata on every value of 26 public sample packets
@@ -62,7 +63,7 @@ The decoder itself:
 
 ```toml
 [dependencies]
-misb = "0.2"
+misb = "0.3"
 ```
 
 C++17: copy [`cpp/misb.hpp`](cpp/misb.hpp).
@@ -81,6 +82,64 @@ for unit in klv::split(&stream) {
     println!("{:?} sensor {:?} looking at {:?}", p.timestamp(), p.sensor_position(), p.frame_center());
 }
 # Ok::<(), std::io::Error>(())
+```
+
+### Straight from the video, with the frame time
+
+`ts::klv_units` gives every KLV payload with its PID and 90 kHz PTS, so a
+packet can be matched to the frame it describes. Synchronous KLV (stream
+type 0x15, stream id 0xFC) comes wrapped in 5-byte metadata AU cell
+headers; they are removed, so the bytes are plain KLV.
+
+```rust,no_run
+use misb::{klv, st0601::Packet, ts};
+
+let file = std::fs::read("flight.ts")?;
+for unit in ts::klv_units(&file) {
+    for k in klv::split(&unit.data) {
+        let Ok(p) = Packet::from_unit(&k) else { continue };
+        println!("PTS {:?} s: frame center {:?}", unit.pts_seconds(), p.frame_center());
+    }
+}
+# Ok::<(), std::io::Error>(())
+```
+
+For a live feed (UDP multicast, a pipe), `ts::Demuxer` takes datagrams of
+any size, finds the sync byte again after loss, and returns each packet as
+soon as its PES is complete:
+
+```rust,no_run
+let socket = std::net::UdpSocket::bind("0.0.0.0:5000")?;
+let mut demux = misb::ts::Demuxer::new();
+let mut buf = [0u8; 65_536];
+loop {
+    let n = socket.recv(&mut buf)?;
+    demux.push(&buf[..n]);
+    while let Some(unit) = demux.pop() {
+        println!("PID {:#x} PTS {:?}: {} bytes of KLV", unit.pid, unit.pts, unit.data.len());
+    }
+}
+# Ok::<(), std::io::Error>(())
+```
+
+`ts::Muxer` writes KLV into a transport stream, asynchronous (`KLVA`
+registration) or synchronous (metadata descriptor, AU cells, PTS). ffmpeg
+8.1 reads both back as `klv` and `ffmpeg -map 0:d -c copy -f data` returns
+the original bytes, so it is a quick way to make test files for a ground
+station:
+
+```rust
+use misb::{st0601::{Builder, Tag}, ts::Muxer};
+
+let mut mux = Muxer::synchronous(0x1F1);
+let mut file = mux.tables();
+for frame in 0..30u64 {
+    let mut b = Builder::new(1_700_000_000_000_000 + frame * 33_367);
+    b.float(Tag::SensorLatitude, 38.8895)?.float(Tag::SensorLongitude, -77.0353)?;
+    file.extend(mux.write(&b.finish(), Some(frame * 3_003)));
+}
+assert_eq!(misb::ts::klv_units(&file).len(), 30);
+# Ok::<(), misb::Error>(())
 ```
 
 ## Docs

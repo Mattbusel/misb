@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "misb"
-version = "0.2.0"
+version = "0.3.0"
 description = "MISB KLV metadata for drone video (STANAG 4609): ST 0601 UAS Datalink, ST 0102 security, ST 0903 VMTI, ST 1201 IMAPB. Decode and encode, checksum checked"
 readme = "DESCRIPTION.md"
 license = { text = "MIT OR Apache-2.0" }

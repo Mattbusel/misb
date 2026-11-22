@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.0 (2026-11-22)
+
+Why a minor bump: new public API (`ts::klv_units`, `ts::Demuxer`,
+`ts::Muxer`, the ST 0903 series types). Nothing existing was removed or
+changed in signature.
+
+- `ts::klv_units` (`std`): every KLV payload in a transport stream with its
+  PID, `stream_type`, `stream_id` and 90 kHz PTS, in file order, so a packet
+  can be matched to its video frame.
+- `ts::Demuxer`: the same for a live feed. Push datagrams or chunks of any
+  size, pop units as their PES completes. Finds the sync byte again after
+  garbage or a lost datagram and drops the PES it cut.
+- `ts::Muxer`: writes KLV into a transport stream, asynchronous (stream type
+  0x06, `KLVA` registration descriptor) or synchronous (stream type 0x15,
+  stream id 0xFC, metadata descriptor, metadata AU cells), with PTS. ffmpeg
+  8.1.2 identifies both as `klv` and returns the original bytes with
+  `-map 0:d -c copy -f data`.
+- `ts::crc32_mpeg2`, `ts::PACKET_SIZE`.
+- Fix: synchronous KLV (MISB ST 1402, stream id 0xFC) carries each payload
+  in metadata AU cells with a 5-byte header. 0.2.0 copied those headers into
+  the KLV bytes of `ts::klv_streams`; they are now removed. PES packets that
+  give their length are also cut at that length, so stuffing after the
+  payload no longer reaches the KLV. Without a PMT, audio and video PES are
+  no longer read as data.
+- ST 0903: `VmtiSet::algorithms` (Algorithm Series, tag 102),
+  `VmtiSet::algorithm(id)` to look up the algorithm a target names,
+  `VmtiSet::ontologies` (Ontology Series, tag 103); types `Algorithm`,
+  `Ontology`, `SetSeries`. `Builder::algorithm` and `Builder::ontology`
+  encode them.
+- `klvdump` example reads `.ts` files and prints each packet's PID and PTS.
+- Test fixture `tests/data/ffmpeg_mpeg2_klv.ts` (10 kB, MPEG-2 video and
+  KLV written by ffmpeg 8.1.2), not shipped in the crate.
+
 ## 0.2.0 (2026-11-20)
 
 Why a minor bump: `cargo install misb` now installs a binary whose job is

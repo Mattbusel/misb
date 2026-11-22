@@ -9,7 +9,7 @@
 //! | MISB ST 0903 | [`st0903`] | Video Moving Target Indicator (VMTI): detections in the frame, nested in tag 74 or standalone |
 //! | MISB ST 1201 | [`imapb`] | IMAPB floating point to integer mapping used by the newer tags |
 //! | ST 0601, ST 1201 conformance | [`conform`] (`std`) | Fails a stream on missing KLV, mandatory tags, checksums, sizes, mappings, time going backwards and impossible positions |
-//! | ISO 13818-1 | [`ts`] (`std`) | Takes the KLV data streams out of an MPEG transport stream without ffmpeg |
+//! | ISO 13818-1, MISB ST 1402 | [`ts`] (`std`) | KLV out of and into MPEG transport streams without ffmpeg: PTS per packet, sync and async carriage, a push demuxer for live feeds |
 //!
 //! Decoding is zero-copy and does not allocate: a [`st0601::Packet`] borrows
 //! the input and hands out typed values on demand. The checksum is verified

@@ -1,18 +1,36 @@
-//! Prints every ST 0601 packet in a KLV data stream, one line per item.
-//!
-//! Get the KLV stream out of a STANAG 4609 video first:
+//! Prints every ST 0601 packet in a KLV data stream or a transport
+//! stream, one line per item.
 //!
 //! ```text
-//! ffmpeg -i "Day Flight.mpg" -map 0:d -c copy -f data day_flight.klv
+//! cargo run --example klvdump -- "Day Flight.mpg"
 //! cargo run --example klvdump -- day_flight.klv
 //! ```
+//!
+//! For a transport stream each packet is shown with its PID and PTS, so
+//! you can line it up with the video frame it describes.
 use misb::st0601::{Packet, Value};
-use misb::{klv, st0601};
+use misb::{klv, st0601, ts};
 
 fn main() {
-    let path = std::env::args().nth(1).expect("usage: klvdump <file.klv>");
+    let path = std::env::args()
+        .nth(1)
+        .expect("usage: klvdump <file.ts|file.klv>");
     let bytes = std::fs::read(&path).expect("read input");
-    for (n, unit) in klv::split(&bytes).enumerate() {
+    if !bytes.starts_with(&klv::UL_PREFIX) && ts::is_transport_stream(&bytes) {
+        for unit in ts::klv_units(&bytes) {
+            let pts = unit
+                .pts_seconds()
+                .map_or("no PTS".to_string(), |s| format!("PTS {s:.3} s"));
+            println!("PID {:#06x}, {pts}", unit.pid);
+            dump(&unit.data);
+        }
+    } else {
+        dump(&bytes);
+    }
+}
+
+fn dump(bytes: &[u8]) {
+    for (n, unit) in klv::split(bytes).enumerate() {
         if !klv::same_key(unit.key, &st0601::KEY) {
             println!("#{n}: other KLV key {:02x?}", unit.key);
             continue;
