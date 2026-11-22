@@ -25,6 +25,8 @@
 use crate::klv::{self, be_int, be_uint, Items, RawItem};
 use crate::{st0102, st0903, Error, GeoPoint};
 
+pub mod packs;
+
 /// The universal key of the UAS Datalink Local Set.
 pub const KEY: [u8; 16] = [
     0x06, 0x0E, 0x2B, 0x34, 0x02, 0x0B, 0x01, 0x01, 0x0E, 0x01, 0x03, 0x01, 0x01, 0x00, 0x00, 0x00,
@@ -622,6 +624,71 @@ impl<'a> Packet<'a> {
     pub fn vmti(&self) -> Option<st0903::VmtiSet<'a>> {
         self.raw(Tag::VmtiLocalSet).map(st0903::VmtiSet::new)
     }
+
+    /// Image Horizon Pixel Pack (tag 81).
+    pub fn image_horizon(&self) -> Option<packs::HorizonPixelPack> {
+        packs::HorizonPixelPack::parse(self.raw(Tag::ImageHorizonPixelPack)?).ok()
+    }
+
+    /// Every Control Command (tag 115) in the packet, in order. Malformed
+    /// ones are skipped.
+    pub fn control_commands(&self) -> impl Iterator<Item = packs::ControlCommand<'a>> + 'a {
+        self.items()
+            .map_while(Result::ok)
+            .filter(|i| i.tag == Tag::ControlCommand as u32)
+            .filter_map(|i| packs::ControlCommand::parse(i.raw).ok())
+    }
+
+    /// Ids of the acknowledged control commands (tag 116).
+    pub fn verified_commands(&self) -> Option<packs::OidList<'a>> {
+        packs::OidList::parse(self.raw(Tag::ControlCommandVerificationList)?).ok()
+    }
+
+    /// Ids of the wavelengths in use (tag 121).
+    pub fn active_wavelengths(&self) -> Option<packs::OidList<'a>> {
+        packs::OidList::parse(self.raw(Tag::ActiveWavelengthList)?).ok()
+    }
+
+    /// Country Codes (tag 122).
+    pub fn country_codes(&self) -> Option<packs::CountryCodes<'a>> {
+        packs::CountryCodes::parse(self.raw(Tag::CountryCodes)?).ok()
+    }
+
+    /// Sensor Frame Rate Pack (tag 127).
+    pub fn frame_rate(&self) -> Option<packs::FrameRate> {
+        packs::FrameRate::parse(self.raw(Tag::SensorFrameRatePack)?).ok()
+    }
+
+    /// Wavelengths List (tag 128).
+    pub fn wavelengths(&self) -> Option<packs::Wavelengths<'a>> {
+        packs::Wavelengths::parse(self.raw(Tag::WavelengthsList)?).ok()
+    }
+
+    /// Airbase Locations (tag 130).
+    pub fn airbase_locations(&self) -> Option<packs::AirbaseLocations> {
+        packs::AirbaseLocations::parse(self.raw(Tag::AirbaseLocations)?).ok()
+    }
+
+    /// Payload List (tag 138).
+    pub fn payloads(&self) -> Option<packs::PayloadList<'a>> {
+        packs::PayloadList::parse(self.raw(Tag::PayloadList)?).ok()
+    }
+
+    /// Active Payloads (tag 139).
+    pub fn active_payloads(&self) -> Option<packs::ActivePayloads<'a>> {
+        self.raw(Tag::ActivePayloads)
+            .map(packs::ActivePayloads::new)
+    }
+
+    /// Waypoint List (tag 141).
+    pub fn waypoints(&self) -> Option<packs::Waypoints<'a>> {
+        packs::Waypoints::parse(self.raw(Tag::WaypointList)?).ok()
+    }
+
+    /// View Domain (tag 142).
+    pub fn view_domain(&self) -> Option<packs::ViewDomain> {
+        packs::ViewDomain::parse(self.raw(Tag::ViewDomain)?).ok()
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -773,6 +840,72 @@ mod builder {
         /// Nests a VMTI Local Set (tag 74) built with [`st0903::Builder`].
         pub fn vmti(&mut self, set: &st0903::Builder) -> Result<&mut Self, Error> {
             self.raw(74, &set.body())
+        }
+
+        /// Image Horizon Pixel Pack (tag 81).
+        pub fn image_horizon(&mut self, v: &packs::HorizonPixelPack) -> Result<&mut Self, Error> {
+            self.raw(81, &v.encode()?)
+        }
+
+        /// One Control Command (tag 115); call again for each command.
+        pub fn control_command(
+            &mut self,
+            v: &packs::ControlCommand<'_>,
+        ) -> Result<&mut Self, Error> {
+            self.raw(115, &v.encode()?)
+        }
+
+        /// Control Command Verification List (tag 116).
+        pub fn verified_commands(&mut self, ids: &[u64]) -> Result<&mut Self, Error> {
+            self.raw(116, &packs::encode_oid_list(ids)?)
+        }
+
+        /// Active Wavelength List (tag 121).
+        pub fn active_wavelengths(&mut self, ids: &[u64]) -> Result<&mut Self, Error> {
+            self.raw(121, &packs::encode_oid_list(ids)?)
+        }
+
+        /// Country Codes (tag 122).
+        pub fn country_codes(&mut self, v: &packs::CountryCodes<'_>) -> Result<&mut Self, Error> {
+            self.raw(122, &v.encode()?)
+        }
+
+        /// Sensor Frame Rate Pack (tag 127).
+        pub fn frame_rate(&mut self, v: &packs::FrameRate) -> Result<&mut Self, Error> {
+            self.raw(127, &v.encode()?)
+        }
+
+        /// Wavelengths List (tag 128).
+        pub fn wavelengths(&mut self, list: &[packs::Wavelength<'_>]) -> Result<&mut Self, Error> {
+            self.raw(128, &packs::encode_wavelengths(list)?)
+        }
+
+        /// Airbase Locations (tag 130).
+        pub fn airbase_locations(
+            &mut self,
+            v: &packs::AirbaseLocations,
+        ) -> Result<&mut Self, Error> {
+            self.raw(130, &v.encode()?)
+        }
+
+        /// Payload List (tag 138).
+        pub fn payloads(&mut self, list: &[packs::Payload<'_>]) -> Result<&mut Self, Error> {
+            self.raw(138, &packs::encode_payloads(list)?)
+        }
+
+        /// Active Payloads (tag 139), from the ids that are on.
+        pub fn active_payloads(&mut self, ids: &[u64]) -> Result<&mut Self, Error> {
+            self.raw(139, &packs::encode_active_payloads(ids)?)
+        }
+
+        /// Waypoint List (tag 141).
+        pub fn waypoints(&mut self, list: &[packs::Waypoint]) -> Result<&mut Self, Error> {
+            self.raw(141, &packs::encode_waypoints(list)?)
+        }
+
+        /// View Domain (tag 142).
+        pub fn view_domain(&mut self, v: &packs::ViewDomain) -> Result<&mut Self, Error> {
+            self.raw(142, &v.encode()?)
         }
 
         /// Finishes the packet: key, length, items, version, checksum.

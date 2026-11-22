@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.0 (2026-11-22)
+
+Why a minor bump: new public API (`st0601::packs`, new `Packet` accessors
+and `Builder` methods). Nothing existing was removed or changed in
+signature; `Value` still returns these tags as `Bytes`.
+
+- `st0601::packs`: typed decode and encode for the ST 0601 packs and
+  lists that were raw bytes until now: Image Horizon Pixel Pack (81),
+  Control Command (115), Control Command Verification List (116), Active
+  Wavelength List (121), Country Codes (122), Sensor Frame Rate Pack (127),
+  Wavelengths List (128), Airbase Locations (130), Payload List (138),
+  Active Payloads (139), Waypoint List (141), View Domain (142). Each type
+  has a `parse` that checks the whole value; lists are validated once and
+  then iterate without allocating, so decoding stays `no_std` and
+  allocation free.
+- `Packet::image_horizon`, `control_commands` (every tag 115 in the
+  packet), `verified_commands`, `active_wavelengths`, `country_codes`,
+  `frame_rate`, `wavelengths`, `airbase_locations`, `payloads`,
+  `active_payloads`, `waypoints`, `view_domain`. Missing or malformed
+  tags return `None`.
+- `Builder` methods of the same names (`alloc`), and `encode` on each type.
+  All twelve tags of KWIVER's ST 0601 test packet (`h264_klv.ts`) decode
+  and re-encode byte for byte (`tests/packs.rs`), and every pack in all
+  30 packets of that file decodes.
+- `klvdump` prints frame rate, airbase locations, payloads, waypoints and
+  control commands.
+
 ## 0.3.0 (2026-11-22)
 
 Why a minor bump: new public API (`ts::klv_units`, `ts::Demuxer`,

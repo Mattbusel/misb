@@ -16,7 +16,7 @@ inputs:
   version:
     description: misb crate version to install
     required: false
-    default: "0.3.0"
+    default: "0.4.0"
 runs:
   using: composite
   steps:

@@ -15,7 +15,7 @@ conformance report `misb-check` prints ([conformance.md](conformance.md)).
 
 ```toml
 [dependencies]
-misb = "0.3"
+misb = "0.4"
 ```
 
 | Feature | Default | Adds | Extra dependencies |

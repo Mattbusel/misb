@@ -57,7 +57,34 @@ VTarget Pack            = Target ID (BER-OID), then local set items
 ST 0601 tags 60, 61, 62 and 140 describe weapons. They are returned as raw
 bytes and never decoded. Packs and nested sets of other standards (ST 0806
 RVT, ST 1206 SAR, ST 1002, ST 1601, ST 1602, ST 1607, waypoint and payload
-lists) are also returned as bytes.
+lists) are also returned as bytes; waypoint and payload lists and the other
+ST 0601 packs are decoded by `st0601::packs` (see below).
+
+## ST 0601 packs
+
+`L` is a BER length, `OID` a BER-OID integer, `IMAPB(min, max, n)` an
+ST 1201 value in `n` bytes. A location is `lat IMAPB(-90, 90, 4) | lon
+IMAPB(-180, 180, 4) [| HAE IMAPB(-900, 9000, 3)]`.
+
+| Tag | Layout |
+|---|---|
+| 81 Image Horizon Pixel Pack | `x0 y0 x1 y1` (u8, percent of width and height) `[| lat0 lon0 lat1 lon1]` (i32, tags 13 and 14 mapping, `0x80000000` = not available) |
+| 115 Control Command | `OID id | L text | [u64 time, us]` |
+| 116 Control Command Verification List | `OID*` |
+| 121 Active Wavelength List | `OID*` |
+| 122 Country Codes | `L method | L overflight [| L operator [| L manufacture]]` |
+| 127 Sensor Frame Rate Pack | `OID numerator [| OID denominator (default 1)]` |
+| 128 Wavelengths List | `(L | OID id | min IMAPB(0, 1e9, 4) nm | max IMAPB(0, 1e9, 4) nm | name)*` |
+| 130 Airbase Locations | `L takeoff-location [| L recovery-location]`, `L = 0` unknown, recovery left out = take-off |
+| 138 Payload List | `OID count | (L | OID id | OID type | L name)*` |
+| 139 Active Payloads | bit field, bit n of the last byte upwards = payload n on |
+| 141 Waypoint List | `(L | OID id | i16 order [| OID info [| location]])*`, info bit 0 manual, bit 1 ad hoc |
+| 142 View Domain | `(L | start | range)` for azimuth (start 0..360), elevation (start -180..180), roll (start 0..360); each half `L/2` bytes IMAPB, range IMAPB(0, 360) |
+
+jmisb reads the optional positions of tag 81 with the signed mapping of
+tags 13 and 14, KWIVER with an unsigned one over the same range; `misb`
+follows jmisb. KWIVER's test packets send only the 4-byte form, so neither
+reading has been checked against real data.
 
 ## Sources
 

@@ -76,5 +76,20 @@ fn dump(bytes: &[u8]) {
         if let Some(c) = packet.corners() {
             println!("  footprint: {:?}", c.map(|p| (p.lat, p.lon)));
         }
+        if let Some(f) = packet.frame_rate().and_then(|f| f.fps()) {
+            println!("  frame rate: {f:.3} fps");
+        }
+        if let Some(a) = packet.airbase_locations() {
+            println!("  airbase: {a:?}");
+        }
+        if let Some(p) = packet.payloads() {
+            println!("  payloads: {p:?}");
+        }
+        if let Some(w) = packet.waypoints() {
+            println!("  waypoints: {w:?}");
+        }
+        for c in packet.control_commands() {
+            println!("  command: {c:?}");
+        }
     }
 }

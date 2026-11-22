@@ -5,6 +5,7 @@
 //! |---|---|---|
 //! | SMPTE ST 336, MISB ST 0107 | [`klv`] | Keys, BER lengths, BER-OID tags, local sets, splitting a byte stream into packets |
 //! | MISB ST 0601 | [`st0601`] | UAS Datalink Local Set: platform, sensor and frame-center position, footprint, timestamps, 143 tags |
+//! | MISB ST 0601 packs | [`st0601::packs`] | Waypoint List, Airbase Locations, Payload List, frame rate, country codes, control commands, wavelengths, view domain, horizon |
 //! | MISB ST 0102 | [`st0102`] | Security Local Set (classification markings), nested in ST 0601 tag 48 |
 //! | MISB ST 0903 | [`st0903`] | Video Moving Target Indicator (VMTI): detections in the frame, nested in tag 74 or standalone |
 //! | MISB ST 1201 | [`imapb`] | IMAPB floating point to integer mapping used by the newer tags |

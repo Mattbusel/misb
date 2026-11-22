@@ -43,7 +43,7 @@ misb-check --strict flight.ts         # warnings fail too
 Exit status: 0 pass, 1 fail, 2 unreadable input. In GitHub Actions:
 
 ```yaml
-- uses: Mattbusel/misb@v0.3.0
+- uses: Mattbusel/misb@v0.4.0
   with:
     paths: test_data/videos    # files or directories, space separated
 ```
@@ -53,6 +53,7 @@ Findings show up as annotations on the run. In Rust, `misb::conform::check_strea
 The decoder itself:
 
 - ST 0601 UAS Datalink: all 143 tags, sensor and frame-center position, footprint corners
+- ST 0601 packs and lists, typed both ways: the flight plan (Waypoint List), take-off and recovery airfields, payloads on board and which are on, sensor frame rate as an exact fraction, country codes, control commands and their acknowledgements, wavelength bands, view domain, horizon line
 - ST 0903 VMTI: detections per frame, pixel boxes and ground positions, the Algorithm and Ontology series that say which detector found a target and what it is
 - MPEG-TS in and out without ffmpeg: KLV with its PTS per packet, synchronous (ST 1402 AU cells) and asynchronous carriage, a push demuxer for live UDP feeds, a muxer for test files
 - ST 0102 security markings, ST 1201 IMAPB
@@ -63,7 +64,7 @@ The decoder itself:
 
 ```toml
 [dependencies]
-misb = "0.3"
+misb = "0.4"
 ```
 
 C++17: copy [`cpp/misb.hpp`](cpp/misb.hpp).
@@ -141,6 +142,52 @@ for frame in 0..30u64 {
 assert_eq!(misb::ts::klv_units(&file).len(), 30);
 # Ok::<(), misb::Error>(())
 ```
+
+### The flight plan and the rest of the packs
+
+ST 0601.19 tags 115 to 142 carry structures, not numbers: the waypoint
+list the aircraft is flying, its airfields, the payloads on board, the
+commands it was sent. Parsers that read tags as one byte never reach them
+(see the table above); others hand back the bytes. `misb` types each one,
+reads and writes it, and matches KWIVER's ST 0601 test packet byte for
+byte on all twelve. A malformed pack is `None` from the accessor and a
+precise `Error` from the type's `parse`, never a panic.
+
+```rust
+use misb::st0601::{packs::{AirbaseLocations, ControlCommand, Waypoint}, Builder, Packet};
+use misb::GeoPoint;
+
+let home = GeoPoint { lat: 38.8418, lon: -77.0368, height: Some(3.0) };
+let mut b = Builder::new(1_700_000_000_000_000);
+b.waypoints(&[
+    Waypoint::new(1, 1, GeoPoint { lat: 38.8894, lon: -77.0352, height: Some(200.0) }),
+    Waypoint::new(2, 2, GeoPoint { lat: 38.8897, lon: -77.0129, height: Some(100.0) }),
+])?
+.airbase_locations(&AirbaseLocations { takeoff: Some(home), recovery: Some(home) })?
+.control_command(&ControlCommand { id: 5, text: "Fly to Waypoint 1", time: None })?
+.active_payloads(&[0, 2])?;
+let bytes = b.finish();
+
+let (p, _) = Packet::parse(&bytes)?;
+for w in p.waypoints().unwrap() {
+    let at = w.location.unwrap();
+    println!("waypoint {} (order {}): {:.4}, {:.4}", w.id, w.order, at.lat, at.lon);
+}
+let airbase = p.airbase_locations().unwrap();
+assert_eq!(airbase.recovery, airbase.takeoff); // sent once, read as both
+assert!((airbase.takeoff.unwrap().lat - home.lat).abs() < 1e-6);
+assert_eq!(p.control_commands().next().unwrap().text, "Fly to Waypoint 1");
+assert!(p.active_payloads().unwrap().is_active(2));
+# Ok::<(), misb::Error>(())
+```
+
+Details that are easy to get wrong and are handled here:
+
+- Airbase Locations: a recovery location left out means "same as take-off"; a zero length means "unknown". The two read differently.
+- Waypoints: the info byte and the location are both optional, and the prosecution order is signed (KWIVER sends -2 and 32767).
+- Country Codes: trailing codes may be left out and a zero-length code is "none", not an empty string.
+- Sensor Frame Rate: numerator and denominator are BER-OID, so 59.94 fps arrives as exactly 60000/1001.
+- Control Command (tag 115) may appear several times in one packet; `Packet::control_commands` returns all of them.
 
 ## Docs
 

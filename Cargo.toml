@@ -1,10 +1,10 @@
 [package]
 name = "misb"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Matt Busel <matt@busel.dev>"]
 edition = "2021"
 rust-version = "1.70"
-description = "MISB KLV metadata for drone video (STANAG 4609): decode and encode ST 0601, ST 0102, ST 0903 VMTI and ST 1201, take KLV out of and into MPEG-TS with its PTS (sync and async, live feeds), plus misb-check, a CLI and GitHub Action that fails video whose KLV is missing, malformed or physically impossible. no_std, no dependencies"
+description = "MISB KLV metadata for drone video (STANAG 4609): decode and encode ST 0601 (with its waypoint, airbase and payload packs), ST 0102, ST 0903 VMTI and ST 1201, take KLV out of and into MPEG-TS with its PTS (sync and async, live feeds), plus misb-check, a CLI and GitHub Action that fails video whose KLV is missing, malformed or physically impossible. no_std, no dependencies"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Mattbusel/misb"
 homepage = "https://github.com/Mattbusel/misb"
