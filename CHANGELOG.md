@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.5.0 (2026-11-22)
+
+Why a minor bump: new public API (`st0601::geo`, `Packet::aimpoint`,
+`Packet::footprint`, `Packet::pointing`). Nothing existing was removed or
+changed in signature.
+
+New capability: where the camera is pointed. An ST 0601 packet says where the
+sensor is and where it is looking; the result an operator wants is the other
+end of that line, the patch of ground being filmed.
+
+- `Packet::aimpoint` returns the ground point the camera is aimed at, with the
+  downrange distance and true bearing from the aircraft, drawn from the most
+  trustworthy source the packet carries: the sensor's own Frame Center (tags
+  23/24/25), else Target Location (tags 40/41/42), else a projection from the
+  sensor position, pointing angles and slant range (tags 13/14/15, 5, 18, 19,
+  21). `Aimpoint::source` reports which was used.
+- `Packet::footprint`: the four ground corners of the image (the area in
+  frame), named for the question it answers; same result as `corners`.
+- `Packet::pointing`: the pointing geometry (sensor position, attitude, gimbal
+  angles, slant range) as a `geo::Pointing`.
+- `misb::geo` (new module, `std`): the geodesy. `geo::project` turns a
+  `Pointing` into a ground point in ECEF on the WGS84 ellipsoid (no flat-earth
+  or tangent-plane error), using an aerospace yaw-pitch-roll attitude and
+  Bowring's closed-form ECEF-to-geodetic inverse. WGS84 constants from NIMA
+  TR8350.2. The docs state its limits: sensor height should be above the
+  ellipsoid, and the angles are taken as exact.
+- Tests: ECEF round trip, a nadir look landing straight below the sensor, the
+  projection reproducing the closed-form slant/azimuth/depression vector in the
+  sensor's local frame, heading-plus-relative-azimuth composition, and the
+  real ffmpeg "Day Flight" sample resolving to its Frame Center with a ~10.9 km
+  downrange distance on a ~46 deg bearing. The module is `std`-gated because it
+  needs floating-point trigonometry that `core` does not provide, same as
+  `conform` and `ts`.
+
 ## 0.4.1 (2026-11-22)
 
 - C++ header: `misb::bytes_view` is now a small byte-range class instead of

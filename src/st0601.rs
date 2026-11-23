@@ -597,6 +597,64 @@ impl<'a> Packet<'a> {
         Some(out)
     }
 
+    /// The pointing geometry needed to project an aimpoint: sensor position,
+    /// platform attitude, gimbal angles and slant range. `None` if any of the
+    /// required tags (13/14/15, 5, 18, 19, 21) is missing. Platform pitch
+    /// (tag 6/90) and roll (tag 7/91) default to zero when absent.
+    #[cfg(feature = "std")]
+    pub fn pointing(&self) -> Option<crate::geo::Pointing> {
+        Some(crate::geo::Pointing {
+            sensor: self.sensor_position()?,
+            heading_deg: self.platform_heading()?,
+            pitch_deg: self.platform_pitch().unwrap_or(0.0),
+            roll_deg: self.platform_roll().unwrap_or(0.0),
+            rel_azimuth_deg: self.float(Tag::SensorRelativeAzimuthAngle)?,
+            rel_elevation_deg: self.float(Tag::SensorRelativeElevationAngle)?,
+            slant_range_m: self.float(Tag::SlantRange)?,
+        })
+    }
+
+    /// The ground point this drone's camera is aimed at, with how far downrange
+    /// and in which direction it lies from the aircraft.
+    ///
+    /// This is the counter-surveillance answer: *what is the camera filming?*
+    /// It is drawn from the most trustworthy source the packet carries:
+    ///
+    /// 1. Frame Center (tags 23/24/25), the sensor's own geolocation of the
+    ///    image centre;
+    /// 2. else Target Location (tags 40/41/42), the tracked point;
+    /// 3. else a projection from sensor position, pointing angles and slant
+    ///    range (see [`geo::project`](crate::geo::project)).
+    ///
+    /// [`Aimpoint::source`](crate::geo::AimSource) says which was used. `None`
+    /// if the packet has no sensor position, or none of the three sources is
+    /// available.
+    #[cfg(feature = "std")]
+    pub fn aimpoint(&self) -> Option<crate::geo::Aimpoint> {
+        use crate::geo::{aimpoint_from, project, AimSource};
+        let sensor = self.sensor_position()?;
+        if let Some(fc) = self.frame_center() {
+            return Some(aimpoint_from(sensor, fc, AimSource::FrameCenter));
+        }
+        if let Some(tl) = self.target_location() {
+            return Some(aimpoint_from(sensor, tl, AimSource::TargetLocation));
+        }
+        let point = project(&self.pointing()?)?;
+        Some(aimpoint_from(sensor, point, AimSource::Projected))
+    }
+
+    /// The four ground corners of the image (upper left, upper right, lower
+    /// right, lower left): the camera's footprint on the ground.
+    ///
+    /// This is [`corners`](Self::corners), named for the operational question
+    /// it answers: *how big an area, and which area, is in frame?* The corners
+    /// come from the full-precision corner tags (82 to 89) or the frame-center
+    /// offset tags (26 to 33); `None` if neither set is present.
+    #[cfg(feature = "std")]
+    pub fn footprint(&self) -> Option<[GeoPoint; 4]> {
+        self.corners()
+    }
+
     /// Platform heading, degrees true (tag 5).
     pub fn platform_heading(&self) -> Option<f64> {
         self.float(Tag::PlatformHeadingAngle)

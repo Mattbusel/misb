@@ -75,7 +75,7 @@ Findings show up as annotations on the run. In Rust, `misb::conform::check_strea
 
 The decoder itself:
 
-- ST 0601 UAS Datalink: all 143 tags, sensor and frame-center position, footprint corners
+- ST 0601 UAS Datalink: all 143 tags, sensor and frame-center position, footprint corners, and `aimpoint` for the ground point the camera is filming (frame center, target location, or projected from sensor position, angles and slant range)
 - ST 0601 packs and lists, typed both ways: the flight plan (Waypoint List), take-off and recovery airfields, payloads on board and which are on, sensor frame rate as an exact fraction, country codes, control commands and their acknowledgements, wavelength bands, view domain, horizon line
 - ST 0903 VMTI: detections per frame, pixel boxes and ground positions, the Algorithm and Ontology series that say which detector found a target and what it is
 - MPEG-TS in and out without ffmpeg: KLV with its PTS per packet, synchronous (ST 1402 AU cells) and asynchronous carriage, a push demuxer for live UDP feeds, a muxer for test files
@@ -107,6 +107,45 @@ for unit in klv::split(&stream) {
 }
 # Ok::<(), std::io::Error>(())
 ```
+
+### Where is the camera pointed
+
+The question a counter-UAS operator, an airfield or prison security post, or
+an investigator asks of a drone feed is not where the aircraft is, it is what
+the camera is filming. `Packet::aimpoint` answers it: the ground point the
+sensor is looking at, with how far downrange and on what compass bearing it
+lies from the aircraft. It takes the most trustworthy source the packet
+carries, in order: the sensor's own Frame Center (tags 23/24/25), else Target
+Location (tags 40/41/42), else a projection from the sensor position, pointing
+angles and slant range (tags 13/14/15, 5, 18, 19, 21). `aimpoint().source`
+says which was used. `footprint` gives the four ground corners, the patch of
+ground in frame.
+
+```rust,no_run
+use misb::{klv, st0601::Packet};
+
+let stream = std::fs::read("day_flight.klv")?;
+for unit in klv::split(&stream) {
+    let Ok(p) = Packet::from_unit(&unit) else { continue };
+    if let Some(a) = p.aimpoint() {
+        // e.g. "camera aimed at 54.74912, -110.04664 (FrameCenter),
+        //       10900 m downrange, bearing 46 deg"
+        println!(
+            "camera aimed at {:.5}, {:.5} ({:?}), {:.0} m downrange, bearing {:.0} deg",
+            a.point.lat, a.point.lon, a.source, a.ground_range_m, a.bearing_deg
+        );
+    }
+}
+# Ok::<(), std::io::Error>(())
+```
+
+The projection runs in ECEF on the WGS84 ellipsoid (no flat-earth error) and
+is validated in the test suite against the closed-form slant/azimuth/depression
+geometry and the real ffmpeg "Day Flight" sample. When Frame Center is present
+it is used as is, because the sensor's onboard computer has already solved the
+terrain intersection; the projection is the fallback for packets that omit it.
+See `misb::geo` for the method and its stated limits (sensor height should be
+above the ellipsoid; angles are taken as exact).
 
 ### Straight from the video, with the frame time
 

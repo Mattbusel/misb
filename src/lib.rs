@@ -10,6 +10,7 @@
 //! | MISB ST 0903 | [`st0903`] | Video Moving Target Indicator (VMTI): detections in the frame, nested in tag 74 or standalone |
 //! | MISB ST 1201 | [`imapb`] | IMAPB floating point to integer mapping used by the newer tags |
 //! | ST 0601, ST 1201 conformance | [`conform`] (`std`) | Fails a stream on missing KLV, mandatory tags, checksums, sizes, mappings, time going backwards and impossible positions |
+//! | ST 0601 geolocation | [`geo`] (`std`) | Where the camera is pointed: the ground point it is filming (frame center, target location, or projected from sensor position, angles and slant range) and the image footprint |
 //! | ISO 13818-1, MISB ST 1402 | [`ts`] (`std`) | KLV out of and into MPEG transport streams without ffmpeg: PTS per packet, sync and async carriage, a push demuxer for live feeds |
 //!
 //! Decoding is zero-copy and does not allocate: a [`st0601::Packet`] borrows
@@ -55,6 +56,8 @@ extern crate std;
 
 #[cfg(feature = "std")]
 pub mod conform;
+#[cfg(feature = "std")]
+pub mod geo;
 pub mod imapb;
 pub mod klv;
 mod math;
